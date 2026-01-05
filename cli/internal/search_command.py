@@ -40,5 +40,15 @@ def remove_punctuation(text: str) -> str:
 def tokenize(text: str) -> list[str]:
     return text.split()
 
+def remove_stop_words(tokens: list[str]) -> list[str]:
+    res = []
+    with open(config.STOP_WORDS_FILE_PATH, "r") as file:
+        stop_words = file.read()
+    stop_words_set = set(stop_words.splitlines())
+    for t in tokens:
+        if t not in stop_words_set:
+            res.append(t)
+    return res
+
 def preprocess_text(text: str) -> list[str]:
-    return tokenize(remove_punctuation(lower_case(text)))
+    return remove_stop_words(tokenize(remove_punctuation(lower_case(text))))
