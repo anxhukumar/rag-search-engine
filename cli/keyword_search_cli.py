@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-
+from internal import search_command
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
@@ -15,6 +15,7 @@ def main() -> None:
     match args.command:
         case "search":
             print(f"Searching for: {args.query}")
+            search_command.read_movies_data(args.query, 5)
         case _:
             parser.print_help()
 
