@@ -15,7 +15,10 @@ def main() -> None:
     match args.command:
         case "search":
             print(f"Searching for: {args.query}")
-            search_command.read_movies_data(args.query, 5)
+            matches = search_command.read_movies_data(args.query, 5)
+            
+            for i, m in enumerate(matches):
+                print(f"{i+1}. {m['title']}")
         case _:
             parser.print_help()
 
