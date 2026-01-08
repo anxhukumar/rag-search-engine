@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import math
 import argparse
-from internal import search_command, inverted_index, preprocess_text
+from lib.keyword_search import read_movies_data, InvertedIndex, preprocess_text
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
@@ -27,7 +27,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    idx = inverted_index.InvertedIndex()
+    idx = InvertedIndex()
 
     match args.command:
         case "search":
@@ -37,7 +37,7 @@ def main() -> None:
                 print("Error:", e)
                 return
             print(f"Searching for: {args.query}")
-            matches = search_command.read_movies_data(args.query, 5, idx)
+            matches =read_movies_data(args.query, 5, idx)
             
             for m in matches:
                 print(f"{m['id']}. {m['title']}")
@@ -58,7 +58,7 @@ def main() -> None:
             except FileNotFoundError as e:
                 print("Error:", e)
                 return
-            term = preprocess_text.preprocess_text(args.term)[0]
+            term = preprocess_text(args.term)[0]
             idf = math.log((len(idx.docmap)+1) / (len(idx.index[term])+1))
             print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
         case "tfidf":
@@ -69,7 +69,7 @@ def main() -> None:
                 return
             tf = idx.get_tf(args.doc_id, args.term)
 
-            term = preprocess_text.preprocess_text(args.term)[0]
+            term = preprocess_text(args.term)[0]
             idf = math.log((len(idx.docmap)+1) / (len(idx.index[term])+1))
             
             tf_idf = tf * idf
