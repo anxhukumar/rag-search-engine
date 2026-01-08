@@ -14,19 +14,24 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    idx = inverted_index.InvertedIndex()
+
     match args.command:
         case "search":
+            try:
+                idx.load()
+            except FileNotFoundError as e:
+                print("Error:", e)
+                return
             print(f"Searching for: {args.query}")
-            matches = search_command.read_movies_data(args.query, 5)
+            matches = search_command.read_movies_data(args.query, 5, idx)
             
-            for i, m in enumerate(matches):
-                print(f"{i+1}. {m['title']}")
+            for m in matches:
+                print(f"{m['id']}. {m['title']}")
+
         case "build":
-            idx = inverted_index.InvertedIndex()
             idx.build()
             idx.save()
-            docs = idx.get_documents("merida")
-            print(f"First document for token 'merida' = {docs[0]}")
         case _:
             parser.print_help()
 

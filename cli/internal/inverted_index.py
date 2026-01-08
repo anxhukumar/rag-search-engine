@@ -40,3 +40,15 @@ class InvertedIndex:
         # Write docmap
         with open(config.DOCMAP_CACHE_FILE_PATH, "wb") as f:
             pickle.dump(self.docmap, f)
+    
+    def load(self) -> None:
+        try:
+            # load index
+            with open(config.INDEX_CACHE_FILE_PATH, "rb") as f:
+                self.index = pickle.load(f)
+            
+            # load docmap
+            with open(config.DOCMAP_CACHE_FILE_PATH, "rb") as f:
+                self.docmap = pickle.load(f)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Cache file not found: {e.filename}") from e
