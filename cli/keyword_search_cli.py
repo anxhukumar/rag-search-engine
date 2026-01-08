@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-
+import math
 import argparse
-from internal import search_command, inverted_index
+from internal import search_command, inverted_index, preprocess_text
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
@@ -16,6 +16,14 @@ def main() -> None:
     tf_parser = subparsers.add_parser("tf", help="Returns the term frequency of a token")
     tf_parser.add_argument("doc_id", type=int, help="Document id")
     tf_parser.add_argument("term", type=str, help="Token")
+
+    idf_parser = subparsers.add_parser("idf", help="Returns the inverse document frequency of a token")
+    idf_parser.add_argument("term", type=str, help="Token")
+
+
+    tfidf_parser = subparsers.add_parser("tfidf", help="Returns the term frequency-inverse document frequency of a token")
+    tfidf_parser.add_argument("doc_id", type=int, help="Document id")
+    tfidf_parser.add_argument("term", type=str, help="Token")
 
     args = parser.parse_args()
 
@@ -44,6 +52,28 @@ def main() -> None:
                 print("Error:", e)
                 return
             print(idx.get_tf(args.doc_id, args.term))
+        case "idf":
+            try:
+                idx.load()
+            except FileNotFoundError as e:
+                print("Error:", e)
+                return
+            term = preprocess_text.preprocess_text(args.term)[0]
+            idf = math.log((len(idx.docmap)+1) / (len(idx.index[term])+1))
+            print(f"Inverse document frequency of '{args.term}': {idf:.2f}")
+        case "tfidf":
+            try:
+                idx.load()
+            except FileNotFoundError as e:
+                print("Error:", e)
+                return
+            tf = idx.get_tf(args.doc_id, args.term)
+
+            term = preprocess_text.preprocess_text(args.term)[0]
+            idf = math.log((len(idx.docmap)+1) / (len(idx.index[term])+1))
+            
+            tf_idf = tf * idf
+            print(f"TF-IDF score of '{args.term}' in document '{args.doc_id}': {tf_idf:.2f}")
         case _:
             parser.print_help()
 
