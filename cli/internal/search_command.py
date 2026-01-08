@@ -1,5 +1,4 @@
-from internal import config
-from internal import preprocess_text
+from internal import config, preprocess_text
 import json
 
 
