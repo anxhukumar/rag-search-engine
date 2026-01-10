@@ -3,15 +3,16 @@ from collections import Counter
 from lib import config
 import pickle
 import string
+import math
 import json
 import os
 
 class InvertedIndex:
 
     def __init__(self):
-        self.index: dict[str, set[int]] = {}
-        self.docmap: dict[int, dict] = {}
-        self.term_frequencies: dict[int, Counter] = {}
+        self.index: dict[str, set[int]] = {} # maps a token (a word) to a set of document IDs
+        self.docmap: dict[int, dict] = {} # maps a document ID to the actual document object
+        self.term_frequencies: dict[int, Counter] = {} # maps a document ID to a Counter object
     
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = preprocess_text(text)
@@ -81,7 +82,17 @@ class InvertedIndex:
             return 0
         
         return self.term_frequencies[doc_id][token[0]]
-    
+
+    def get_bm25_idf(self, term: str) -> float:
+        token = preprocess_text(term)
+        if len(token) > 1:
+            raise Exception("More than one token found")
+        
+        N = len(self.docmap)
+        df = len(self.index[token[0]])
+        return math.log((N - df + 0.5) / (df + 0.5) + 1)
+
+
 
 stemmer = PorterStemmer()
 
