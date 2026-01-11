@@ -1,6 +1,6 @@
 from nltk.stem import PorterStemmer
 from collections import Counter
-from lib import config
+from lib import config, search_utils
 import pickle
 import string
 import math
@@ -9,13 +9,18 @@ import os
 
 class InvertedIndex:
 
-    def __init__(self):
+    def __init__(self, doc_lengths = {}):
         self.index: dict[str, set[int]] = {} # maps a token (a word) to a set of document IDs
         self.docmap: dict[int, dict] = {} # maps a document ID to the actual document object
         self.term_frequencies: dict[int, Counter] = {} # maps a document ID to a Counter object
+        self.doc_lengths: dict[int, int] = doc_lengths # keeps a count of tokens of a document
     
     def __add_document(self, doc_id: int, text: str) -> None:
         tokens = preprocess_text(text)
+        tokens_len = len(tokens)
+
+        self.doc_lengths[doc_id] = tokens_len
+
         for t in tokens:
 
             # update term freq
@@ -55,6 +60,10 @@ class InvertedIndex:
         # write term freq.
         with open(config.TERM_FREQ_CACHE_FILE_PATH, "wb") as f:
             pickle.dump(self.term_frequencies, f)
+
+        # writer doc_len
+        with open(config.DOC_LEN_CACHE_FILE_PATH, "wb") as f:
+            pickle.dump(self.doc_lengths, f)
     
     def load(self) -> None:
         try:
@@ -69,6 +78,10 @@ class InvertedIndex:
             # load term freq.
             with open(config.TERM_FREQ_CACHE_FILE_PATH, "rb") as f:
                 self.term_frequencies = pickle.load(f)
+            
+            # load doc_len
+            with open(config.DOC_LEN_CACHE_FILE_PATH, "rb") as f:
+                self.doc_lengths = pickle.load(f)
 
         except FileNotFoundError as e:
             raise FileNotFoundError(f"Cache file not found: {e.filename}") from e
@@ -92,10 +105,19 @@ class InvertedIndex:
         df = len(self.index[token[0]])
         return math.log((N - df + 0.5) / (df + 0.5) + 1)
     
-    def get_bm25_tf(self, doc_id: int, term: str, k1=config.BM25_K1) -> float:
+    def get_bm25_tf(self, doc_id: int, term: str, k1=search_utils.BM25_K1, b=search_utils.BM25_B) -> float:
+        len_norm = 1 - b + b * (self.doc_lengths[doc_id] / self.__get_avg_doc_length())
         raw_tf = self.get_tf(doc_id, term)
-        saturated_tf = (raw_tf * (k1 + 1)) / (raw_tf + k1)
+        saturated_tf = (raw_tf * (k1 + 1)) / (raw_tf + k1 * len_norm)
         return saturated_tf
+    
+    def __get_avg_doc_length(self) -> float:
+        if len(self.doc_lengths) == 0:
+            return 0.0
+        total_lengths = 0
+        for k in self.doc_lengths:
+            total_lengths += self.doc_lengths[k]
+        return total_lengths / len(self.doc_lengths)
 
 
 stemmer = PorterStemmer()
