@@ -118,6 +118,23 @@ class InvertedIndex:
         for k in self.doc_lengths:
             total_lengths += self.doc_lengths[k]
         return total_lengths / len(self.doc_lengths)
+    
+    def bm25(self, doc_id: int, term: str) -> float:
+        return self.get_bm25_tf(doc_id, term) * self.get_bm25_idf(term)
+    
+    def bm25_search(self, query: str, limit: int) -> list[tuple[int, int]]:
+        tokens = preprocess_text(query)
+        scores: dict[int, float] = {} # document_id -> total bm25 scores
+        
+        for t in tokens:
+            if t not in self.index:
+                continue
+            for doc_id in self.index[t]:
+                scores[doc_id] = scores.get(doc_id, 0.0) + self.bm25(doc_id, t)
+
+        sorted_scores = sorted(scores.items(), key = lambda item: item[1], reverse=True)
+        return sorted_scores[:limit]
+
 
 
 stemmer = PorterStemmer()
