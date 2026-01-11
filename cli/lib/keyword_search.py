@@ -91,7 +91,11 @@ class InvertedIndex:
         N = len(self.docmap)
         df = len(self.index[token[0]])
         return math.log((N - df + 0.5) / (df + 0.5) + 1)
-
+    
+    def get_bm25_tf(self, doc_id: int, term: str, k1=config.BM25_K1) -> float:
+        raw_tf = self.get_tf(doc_id, term)
+        saturated_tf = (raw_tf * (k1 + 1)) / (raw_tf + k1)
+        return saturated_tf
 
 
 stemmer = PorterStemmer()
