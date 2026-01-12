@@ -13,6 +13,9 @@ def main():
 
     verify_embeddings_parser = subparsers.add_parser("verify_embeddings", help="Verify the embeddings")
 
+    embedquery_parser = subparsers.add_parser("embedquery", help="Embed a query")
+    embedquery_parser.add_argument("query", type=str, help="Query")
+
     args = parser.parse_args()
 
     match args.command:
@@ -22,6 +25,8 @@ def main():
             semantic_search.embed_text(args.term)
         case "verify_embeddings":
             semantic_search.verify_embeddings()
+        case "embedquery":
+            semantic_search.embed_query_text(args.query)
         case _:
             parser.print_help()
 
