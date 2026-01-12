@@ -2,6 +2,7 @@
 from lib import semantic_search, search_utils, config
 import argparse
 import json
+import re
 
 def main():
     parser = argparse.ArgumentParser(description="Semantic Search CLI")
@@ -25,6 +26,12 @@ def main():
     chunk_parser.add_argument("text", type=str, help="Text")
     chunk_parser.add_argument("--chunk-size", type=int, nargs='?', default=search_utils.TEXT_CHUNK_SIZE, help="Chunk size limit")
     chunk_parser.add_argument("--overlap", type=int, nargs='?', default=search_utils.TEXT_CHUNK_OVERLAP, help="Add overlap to text chunks")
+
+    semantic_chunk_parser = subparsers.add_parser("semantic_chunk", help="Chunks text in a way that preserves meaning")
+    semantic_chunk_parser.add_argument("text", type=str, help="Text")
+    semantic_chunk_parser.add_argument("--max-chunk-size", type=int, nargs='?', default=search_utils.MAX_CHUNK_SIZE, help="Maximum chunk size")
+    semantic_chunk_parser.add_argument("--overlap", type=int, nargs='?', default=search_utils.TEXT_CHUNK_OVERLAP, help="Add overlap to text chunks")
+
 
     args = parser.parse_args()
 
@@ -54,11 +61,22 @@ def main():
             text_arr = text.split()
             final_chunks = []
             i = 0
-            while i+args.overlap < len(text_arr):
+            while i + args.overlap < len(text_arr):
                 chunk = text_arr[i:i+args.chunk_size]
                 final_chunks.append(" ".join(chunk))
                 i = (i+args.chunk_size) - args.overlap
             print(f"Chunking {len(text)} characters")
+            for i, s in enumerate(final_chunks, start=1):
+                print(f"{i}. {s}")
+        case "semantic_chunk":
+            text_arr = re.split(r"(?<=[.!?])\s+", args.text)
+            final_chunks = []
+            i = 0
+            while i + args.overlap < len(text_arr):
+                chunk = text_arr[i:i+args.max_chunk_size]
+                final_chunks.append(" ".join(chunk))
+                i = i = (i+args.max_chunk_size) - args.overlap
+            print(f"Semantically chunking {len(args.text)} characters")
             for i, s in enumerate(final_chunks, start=1):
                 print(f"{i}. {s}")
         case _:
