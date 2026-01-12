@@ -8,11 +8,20 @@ def main():
 
     verify_parser = subparsers.add_parser("verify", help="Verify the semantic search model")
 
+    embed_text_parser = subparsers.add_parser("embed_text",  help="Embeds a text")
+    embed_text_parser.add_argument("term", type=str, help="Text")
+
+    verify_embeddings_parser = subparsers.add_parser("verify_embeddings", help="Verify the embeddings")
+
     args = parser.parse_args()
 
     match args.command:
         case "verify":
             semantic_search.verify_model()
+        case "embed_text":
+            semantic_search.embed_text(args.term)
+        case "verify_embeddings":
+            semantic_search.verify_embeddings()
         case _:
             parser.print_help()
 
