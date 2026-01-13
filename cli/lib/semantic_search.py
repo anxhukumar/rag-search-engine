@@ -124,6 +124,41 @@ class ChunkedSemanticSearch(SemanticSearch):
             return self.chunk_embeddings
         return self.build_chunk_embeddings(documents)
 
+    def search_chunks(self, query: str, limit: int = 10) -> list[dict]:
+        query_emb = self.generate_embedding(query)
+        chunk_score = []
+
+        for chunk_idx, v in enumerate(self.chunk_embeddings):
+            cos_sim = cosine_similarity(v, query_emb)
+            chunk_score.append(
+                {
+                    "chunk_idx": chunk_idx,
+                    "movie_idx": self.chunk_metadata[chunk_idx]["movie_idx"],
+                    "score": cos_sim 
+                }
+            )
+        movie_idx_scores = {}
+        for i in range(len(chunk_score)):
+            if chunk_score[i]["movie_idx"] not in movie_idx_scores or chunk_score[i]["score"] > movie_idx_scores[chunk_score[i]["movie_idx"]]:
+                movie_idx_scores[chunk_score[i]["movie_idx"]] = chunk_score[i]["score"]
+                
+
+        sorted_movie_idx_scores = sorted(movie_idx_scores.items(), key=lambda item: item[1], reverse=True)[:limit]
+
+        res = []
+        for v in sorted_movie_idx_scores:
+            obj = self.documents[v[0]]
+            res.append(
+                {
+                    "id": obj["id"],
+                    "title": obj["title"],
+                    "document": obj["description"][:100],
+                    "score": round(v[1], 2),
+                    "metadata": {}
+                }
+            )
+        return res
+    
 
 def verify_model():
     sem = SemanticSearch()

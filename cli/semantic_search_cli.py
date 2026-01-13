@@ -33,6 +33,10 @@ def main():
 
     embed_chunks_parser = subparsers.add_parser("embed_chunks", help="Embeds text chunks")
 
+    search_chunked_parser = subparsers.add_parser("search_chunked")
+    search_chunked_parser.add_argument("query", type=str, help="Query")
+    search_chunked_parser.add_argument("--limit", type=int, nargs='?', default=search_utils.SEARCH_LIMIT, help="Limit the search results")
+
 
     args = parser.parse_args()
 
@@ -70,12 +74,21 @@ def main():
                 print(f"{i}. {s}")
         case "embed_chunks":
             csem = semantic_search.ChunkedSemanticSearch()
-
             # Load movies json
             with open(config.DATA_FILE_PATH, "r") as f:
                 documents = json.load(f)["movies"]
             _ = csem.load_or_create_chunk_embeddings(documents)
             print(f"Generated {len(csem.chunk_embeddings)} chunked embeddings")
+        case "search_chunked":
+            csem = semantic_search.ChunkedSemanticSearch()
+            # Load movies json
+            with open(config.DATA_FILE_PATH, "r") as f:
+                documents = json.load(f)["movies"]
+            csem.load_or_create_chunk_embeddings(documents)
+            matches = csem.search_chunks(args.query, args.limit)
+            for i, m in enumerate(matches, start=1):
+                print(f"\n{i}. {m['title']} (score: {m['score']:.4f})")
+                print(f"   {m['document']}...")
         case _:
             parser.print_help()
 
