@@ -3,6 +3,7 @@ from lib import config
 import numpy as np
 import json
 import os
+import re
 
 class SemanticSearch:
 
@@ -31,7 +32,7 @@ class SemanticSearch:
             np.save(f, self.embeddings)
         return self.embeddings
     
-    def load_or_create_embeddings(self, documents) -> np.ndarray:
+    def load_or_create_embeddings(self, documents: list[dict]) -> np.ndarray:
         self.documents = documents
         self.document_map = {}
         for d in documents:
@@ -66,6 +67,62 @@ class SemanticSearch:
             )
         return final_res
 
+
+class ChunkedSemanticSearch(SemanticSearch):
+    def __init__(self, model_name = "all-MiniLM-L6-v2") -> None:
+        super().__init__(model_name)
+        self.chunk_embeddings = None
+        self.chunk_metadata = None
+    
+    def build_chunk_embeddings(self, documents: list[dict]):
+        self.documents = documents
+        self.document_map = {}
+        chunks: list[str] = []
+        chunk_meta: list[dict] = []
+        for movie_idx, d in enumerate(documents):
+            if not d['description']:
+                continue
+            semantic_chunks = semantic_chunk(d['description'], 1, 4)
+            for chunk_idx, chunk_text in enumerate(semantic_chunks):
+                chunks.append(chunk_text)
+                chunk_meta.append(
+                    {
+                        "movie_idx": movie_idx,
+                        "chunk_idx": chunk_idx,
+                        "total_chunks": len(semantic_chunks),
+                    }
+                )
+            self.document_map[d["id"]] = d
+        self.chunk_embeddings = self.model.encode(chunks, show_progress_bar=True)
+        self.chunk_metadata = chunk_meta
+        os.makedirs(config.CACHE_FILE_PATH, exist_ok=True)
+        # Write chunk embeddngs
+        with open(config.CHUNK_EMBEDDINGS_CACHE_FILE_PATH, "wb") as f:
+            np.save(f, self.chunk_embeddings)
+        # Write chunk metadata
+        with open(config.CHUNK_METADATA_CACHE_FILE_PATH, "w") as f:
+            json.dump(
+                {
+                    "chunks": self.chunk_metadata,
+                    "total_chunks": len(chunks)
+                },
+                f,
+                indent=2
+                )
+        return self.chunk_embeddings
+    
+    def load_or_create_chunk_embeddings(self, documents: list[dict]) -> np.ndarray:
+        self.documents = documents
+        self.document_map = {}
+        for d in documents:
+            self.document_map[d["id"]] = d
+        if os.path.exists(config.CHUNK_EMBEDDINGS_CACHE_FILE_PATH) and os.path.exists(config.CHUNK_METADATA_CACHE_FILE_PATH):
+            with open(config.CHUNK_EMBEDDINGS_CACHE_FILE_PATH, "rb") as f:
+                self.chunk_embeddings = np.load(f)
+            with open(config.CHUNK_METADATA_CACHE_FILE_PATH, "r") as f:
+                self.chunk_metadata = json.load(f)["chunks"]
+            return self.chunk_embeddings
+        return self.build_chunk_embeddings(documents)
 
 
 def verify_model():
@@ -104,4 +161,23 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
         return 0.0
 
     return dot_product / (norm1 * norm2)
-    
+
+def chunk_command(text: str, overlap: int, chunk_size: int) -> list[str]:
+    res = []
+    text_arr = text.split()
+    i = 0
+    while i + overlap < len(text_arr):
+        chunk = text_arr[i:i+chunk_size]
+        res.append(" ".join(chunk))
+        i = (i+chunk_size) - overlap
+    return res
+
+def semantic_chunk(text: str, overlap: int, max_chunk_size: int) -> list[str]:
+    res = []
+    text_arr = re.split(r"(?<=[.!?])\s+", text)
+    i = 0
+    while i + overlap < len(text_arr):
+        chunk = text_arr[i:i + max_chunk_size]
+        res.append(" ".join(chunk))
+        i = (i+max_chunk_size) - overlap
+    return res

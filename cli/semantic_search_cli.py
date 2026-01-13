@@ -2,7 +2,6 @@
 from lib import semantic_search, search_utils, config
 import argparse
 import json
-import re
 
 def main():
     parser = argparse.ArgumentParser(description="Semantic Search CLI")
@@ -32,6 +31,8 @@ def main():
     semantic_chunk_parser.add_argument("--max-chunk-size", type=int, nargs='?', default=search_utils.MAX_CHUNK_SIZE, help="Maximum chunk size")
     semantic_chunk_parser.add_argument("--overlap", type=int, nargs='?', default=search_utils.TEXT_CHUNK_OVERLAP, help="Add overlap to text chunks")
 
+    embed_chunks_parser = subparsers.add_parser("embed_chunks", help="Embeds text chunks")
+
 
     args = parser.parse_args()
 
@@ -58,27 +59,23 @@ def main():
                 print(f"{m['description']}")
         case "chunk":
             text = args.text
-            text_arr = text.split()
-            final_chunks = []
-            i = 0
-            while i + args.overlap < len(text_arr):
-                chunk = text_arr[i:i+args.chunk_size]
-                final_chunks.append(" ".join(chunk))
-                i = (i+args.chunk_size) - args.overlap
+            final_chunks = semantic_search.chunk_command(text, args.overlap, args.chunk_size)
             print(f"Chunking {len(text)} characters")
             for i, s in enumerate(final_chunks, start=1):
                 print(f"{i}. {s}")
         case "semantic_chunk":
-            text_arr = re.split(r"(?<=[.!?])\s+", args.text)
-            final_chunks = []
-            i = 0
-            while i + args.overlap < len(text_arr):
-                chunk = text_arr[i:i+args.max_chunk_size]
-                final_chunks.append(" ".join(chunk))
-                i = i = (i+args.max_chunk_size) - args.overlap
+            final_chunks = semantic_search.semantic_chunk(args.text, args.overlap, args.max_chunk_size)
             print(f"Semantically chunking {len(args.text)} characters")
             for i, s in enumerate(final_chunks, start=1):
                 print(f"{i}. {s}")
+        case "embed_chunks":
+            csem = semantic_search.ChunkedSemanticSearch()
+
+            # Load movies json
+            with open(config.DATA_FILE_PATH, "r") as f:
+                documents = json.load(f)["movies"]
+            _ = csem.load_or_create_chunk_embeddings(documents)
+            print(f"Generated {len(csem.chunk_embeddings)} chunked embeddings")
         case _:
             parser.print_help()
 
