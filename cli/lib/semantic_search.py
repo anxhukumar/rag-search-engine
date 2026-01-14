@@ -69,6 +69,7 @@ class SemanticSearch:
 
 
 class ChunkedSemanticSearch(SemanticSearch):
+
     def __init__(self, model_name = "all-MiniLM-L6-v2") -> None:
         super().__init__(model_name)
         self.chunk_embeddings = None
@@ -209,10 +210,20 @@ def chunk_command(text: str, overlap: int, chunk_size: int) -> list[str]:
 
 def semantic_chunk(text: str, overlap: int, max_chunk_size: int) -> list[str]:
     res = []
+    text = text.strip()
+    if text == "":
+        return []
+
     text_arr = re.split(r"(?<=[.!?])\s+", text)
+    if len(text_arr) == 1:
+        if not text_arr[0].endswith((".", "!", "?")):
+            return [text]
+
     i = 0
     while i + overlap < len(text_arr):
         chunk = text_arr[i:i + max_chunk_size]
-        res.append(" ".join(chunk))
+        chunk_text = " ".join(chunk).strip()
+        if chunk_text != "":
+            res.append(chunk_text)
         i = (i+max_chunk_size) - overlap
     return res
