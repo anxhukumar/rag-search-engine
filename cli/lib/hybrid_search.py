@@ -15,7 +15,7 @@ class HybridSearch:
             self.idx.build()
             self.idx.save()
 
-    def _bm25_search(self, query, limit):
+    def _bm25_search(self, query, limit) -> list[tuple[int, int]]:
         self.idx.load()
         return self.idx.bm25_search(query, limit)
 
@@ -57,8 +57,38 @@ class HybridSearch:
 
         return sorted_dict_list
 
-    def rrf_search(self, query, k, limit=10):
-        raise NotImplementedError("RRF hybrid search is not implemented yet.")
+    def rrf_search(self, query, k, limit=10) -> dict:
+        bm25_scores = self._bm25_search(query, limit*500)
+        semantic_res = self.semantic_search.search_chunks(query, limit*500)
+        res = {}
+        for rank, bms in enumerate(bm25_scores, start=1):
+            doc_id = bms[0]
+            res[doc_id] = {
+                "doc": self.semantic_search.document_map[doc_id],
+                "bm25_rank": rank,
+                "semantic_rank": None,
+                "bm25_rrf_score": rrf_score(rank, k),
+                "sem_rrf_score": 0.0,
+                "total_rrf_score": 0.0 + rrf_score(rank, k),
+            }
+        for rank, sr in enumerate(semantic_res, start=1):
+            doc_id = sr["id"]
+            if doc_id in res:
+                res[doc_id]["semantic_rank"] = rank
+                res[doc_id]["sem_rrf_score"] = rrf_score(rank, k)
+                res[doc_id]["total_rrf_score"] = rrf_score(rank, k) + res[doc_id]["bm25_rrf_score"]
+                continue
+            res[doc_id] = {
+                "doc": self.semantic_search.document_map[doc_id],
+                "bm25_rank": None,
+                "semantic_rank": rank,
+                "bm25_rrf_score": 0.0,
+                "sem_rrf_score": rrf_score(rank, k),
+                "total_rrf_score": rrf_score(rank, k) + 0.0,
+            }
+        final_results = dict(sorted(res.items(), key=lambda d: d[1]["total_rrf_score"], reverse=True)[:limit])
+        return final_results
+        
     
 def normalize(scores: list[float]) -> list[float]:
     res = []
@@ -81,3 +111,6 @@ def normalize(scores: list[float]) -> list[float]:
 
 def hybrid_score(bm25_score, semantic_score, alpha=0.5):
     return alpha * bm25_score + (1 - alpha) * semantic_score
+
+def rrf_score(rank, k=60):
+    return 1 / (k + rank)
