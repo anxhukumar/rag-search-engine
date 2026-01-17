@@ -19,7 +19,7 @@ def main() -> None:
     rrf_search_parser.add_argument("query", type=str, help="Query")
     rrf_search_parser.add_argument("-k", type=int, nargs='?', default=search_utils.DEFAULT_RRF_K, help="Controls the gap between ranks")
     rrf_search_parser.add_argument("--limit", type=int, nargs='?', default=search_utils.SEARCH_LIMIT, help="Search limit")
-    rrf_search_parser.add_argument("--enhance", type=str, choices=["spell"], help="Query enhancement method")
+    rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite"], help="Query enhancement method")
 
     args = parser.parse_args()
 
