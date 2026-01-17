@@ -1,6 +1,6 @@
 import argparse
 import json
-from lib import hybrid_search, search_utils, config
+from lib import hybrid_search, search_utils, config, enhance_search
 
 
 def main() -> None:
@@ -19,6 +19,7 @@ def main() -> None:
     rrf_search_parser.add_argument("query", type=str, help="Query")
     rrf_search_parser.add_argument("-k", type=int, nargs='?', default=search_utils.DEFAULT_RRF_K, help="Controls the gap between ranks")
     rrf_search_parser.add_argument("--limit", type=int, nargs='?', default=search_utils.SEARCH_LIMIT, help="Search limit")
+    rrf_search_parser.add_argument("--enhance", type=str, choices=["spell"], help="Query enhancement method")
 
     args = parser.parse_args()
 
@@ -40,6 +41,13 @@ def main() -> None:
             with open(config.DATA_FILE_PATH, "r") as f:
                 documents = json.load(f)["movies"]
             hs = hybrid_search.HybridSearch(documents)
+
+            if args.enhance:
+                method = args.enhance
+                old_args_query = args.query
+                args.query = enhance_search.enhance_query(args.query, method)
+                print(f"Enhanced query ({method}): '{old_args_query}' -> '{args.query}'")
+
             data = hs.rrf_search(args.query, args.k, args.limit)
             for i, key in enumerate(data, start=1):
                 print(f"{i}. {data[key]["doc"]["title"]}\nRRF Score: {data[key]["total_rrf_score"]}\nBM25 Rank: {data[key]["bm25_rank"]}, Semantic Rank: {data[key]["semantic_rank"]}\n{data[key]["doc"]["description"]}")
