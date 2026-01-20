@@ -1,16 +1,8 @@
-import os
-from dotenv import load_dotenv
-from google import genai
-
-MODEL = "gemini-2.5-flash"
-
-load_dotenv()
-api_key = os.environ.get("GEMINI_API_KEY")
-client = genai.Client(api_key=api_key)
+from lib import search_utils
 
 def get_response(prompt: str) -> str:
-    response = client.models.generate_content(
-        model= MODEL, contents=prompt
+    response = search_utils.client.models.generate_content(
+        model= search_utils.MODEL, contents=prompt
     )
     return response.text
 
@@ -53,11 +45,34 @@ Always return the query only.
     
     return get_response(prompt)
 
+def expand(query: str) -> str:
+
+    prompt = f"""
+Expand this movie search query with related terms.
+
+Add synonyms and related concepts that might appear in movie descriptions.
+Keep expansions relevant and focused.
+This will be appended to the original query.
+
+Examples:
+
+- "scary bear movie" -> "scary horror grizzly bear movie terrifying film"
+- "action movie with bear" -> "action thriller bear chase fight adventure"
+- "comedy with bear" -> "comedy funny bear humor lighthearted"
+
+Query: "{query}"
+Always return the full query only.
+"""
+    
+    return get_response(prompt)
+
 def enhance_query(query: str, method: str) -> str:
     match method:
         case "spell":
             return spell(query)
         case "rewrite":
             return rewrite(query)
+        case "expand":
+            return expand(query)
         case _:
             return "Unknown method"

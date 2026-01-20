@@ -1,6 +1,6 @@
 import argparse
 import json
-from lib import hybrid_search, search_utils, config, enhance_search
+from lib import hybrid_search, search_utils, config, enhance_search, reranking
 
 
 def main() -> None:
@@ -19,7 +19,8 @@ def main() -> None:
     rrf_search_parser.add_argument("query", type=str, help="Query")
     rrf_search_parser.add_argument("-k", type=int, nargs='?', default=search_utils.DEFAULT_RRF_K, help="Controls the gap between ranks")
     rrf_search_parser.add_argument("--limit", type=int, nargs='?', default=search_utils.SEARCH_LIMIT, help="Search limit")
-    rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite"], help="Query enhancement method")
+    rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite", "expand"], help="Query enhancement method")
+    rrf_search_parser.add_argument("--rerank-method", type=str, choices=["individual", "batch", "cross_encoder"], help="Rerank the results")
 
     args = parser.parse_args()
 
@@ -47,10 +48,25 @@ def main() -> None:
                 old_args_query = args.query
                 args.query = enhance_search.enhance_query(args.query, method)
                 print(f"Enhanced query ({method}): '{old_args_query}' -> '{args.query}'")
+            
+            # Check if if re-rank is set to individual
+            if args.rerank_method:
+                extra_limit = args.limit * 5
 
-            data = hs.rrf_search(args.query, args.k, args.limit)
-            for i, key in enumerate(data, start=1):
-                print(f"{i}. {data[key]["doc"]["title"]}\nRRF Score: {data[key]["total_rrf_score"]}\nBM25 Rank: {data[key]["bm25_rank"]}, Semantic Rank: {data[key]["semantic_rank"]}\n{data[key]["doc"]["description"]}")
+            rrf_data = hs.rrf_search(args.query, args.k, extra_limit)
+
+            reranked_data = reranking.reranking(rrf_data, args.query, args.rerank_method)
+            
+            if args.rerank_method == "cross_encoder":
+                for i, key in enumerate(reranked_data, start=1):
+                    print(f"{i}. {reranked_data[key]["doc"]["title"]}\nCross Encoder Score: {reranked_data[key]["cross_encoder_score"]}\nRRF Score: {reranked_data[key]["total_rrf_score"]}\nBM25 Rank: {reranked_data[key]["bm25_rank"]}, Semantic Rank: {reranked_data[key]["semantic_rank"]}\n{reranked_data[key]["doc"]["description"]}")
+                    if i == args.limit:
+                        break
+            else:
+                for i, key in enumerate(reranked_data, start=1):
+                    print(f"{i}. {reranked_data[key]["doc"]["title"]}\nRerank Rank: {i}\nRRF Score: {reranked_data[key]["total_rrf_score"]}\nBM25 Rank: {reranked_data[key]["bm25_rank"]}, Semantic Rank: {reranked_data[key]["semantic_rank"]}\n{reranked_data[key]["doc"]["description"]}")
+                    if i == args.limit:
+                        break
         case _:
             parser.print_help()
 
