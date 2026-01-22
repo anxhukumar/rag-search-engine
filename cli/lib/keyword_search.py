@@ -102,7 +102,10 @@ class InvertedIndex:
             raise Exception("More than one token found")
         
         N = len(self.docmap)
-        df = len(self.index[token[0]])
+        if token[0] in self.index:
+            df = len(self.index[token[0]])
+        else:
+            df = 0.0
         return math.log((N - df + 0.5) / (df + 0.5) + 1)
     
     def get_bm25_tf(self, doc_id: int, term: str, k1=search_utils.BM25_K1, b=search_utils.BM25_B) -> float:

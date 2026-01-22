@@ -1,6 +1,6 @@
 import argparse
 import json
-from lib import hybrid_search, search_utils, config, enhance_search, reranking
+from lib import hybrid_search, search_utils, config, enhance_search, reranking, evaluation
 
 
 def main() -> None:
@@ -21,6 +21,7 @@ def main() -> None:
     rrf_search_parser.add_argument("--limit", type=int, nargs='?', default=search_utils.SEARCH_LIMIT, help="Search limit")
     rrf_search_parser.add_argument("--enhance", type=str, choices=["spell", "rewrite", "expand"], help="Query enhancement method")
     rrf_search_parser.add_argument("--rerank-method", type=str, choices=["individual", "batch", "cross_encoder"], help="Rerank the results")
+    rrf_search_parser.add_argument("--evaluate", action="store_true", help="evaluate search with LLM")
 
     args = parser.parse_args()
 
@@ -38,6 +39,9 @@ def main() -> None:
             for i, k in enumerate(data, start=1):
                 print(f"{i}. {data[k]['doc']['title']}\nHybrid Score: {data[k]['hybrid_score']}\nBM25: {data[k]['keyword_score']}, Semantic: {data[k]['semantic_score']}\n{data[k]['doc']['description']}")
         case "rrf-search":
+            # LOGS
+            print(f"Original query: {args.query}")
+
             # Load movies json
             with open(config.DATA_FILE_PATH, "r") as f:
                 documents = json.load(f)["movies"]
@@ -52,19 +56,42 @@ def main() -> None:
             # Check if if re-rank is set to individual
             if args.rerank_method:
                 extra_limit = args.limit * 5
-
-            rrf_data = hs.rrf_search(args.query, args.k, extra_limit)
-
-            reranked_data = reranking.reranking(rrf_data, args.query, args.rerank_method)
+            else:
+                extra_limit = args.limit
             
+            final_results = hs.rrf_search(args.query, args.k, extra_limit) #RRF DATA
+
+            # LOG RRF results
+            print(f"RRF search returned {len(final_results)} results")
+            print("Top 10 from RRF:")
+            for i, key in enumerate(list(final_results.keys())[:10], start=1):
+                print(f"{i}. {final_results[key]["doc"]["title"]} (RRF Score: {final_results[key]["total_rrf_score"]:.4f})")
+
+            
+            if args.rerank_method:
+                final_results = reranking.reranking(final_results, args.query, args.rerank_method)
+
+                # LOG Reranked results
+                print(f"After reranking with {args.rerank_method}:")
+                print("Top 10 after reranking:")
+                for i, key in enumerate(list(final_results.keys())[:10], start=1):
+                    print(f"{i}. {final_results[key]["doc"]["title"]}")
+            
+
+            # LLM EVALUATION
+            print(f"LLM EVALUATION:")
+            llm_eval_scores = evaluation.evaluate_query_results(args.query, final_results)
+            for i, key in enumerate(final_results):
+                print(f"{i+1}. {final_results[key]["doc"]["title"]}: {llm_eval_scores[i]}/3")
+
             if args.rerank_method == "cross_encoder":
-                for i, key in enumerate(reranked_data, start=1):
-                    print(f"{i}. {reranked_data[key]["doc"]["title"]}\nCross Encoder Score: {reranked_data[key]["cross_encoder_score"]}\nRRF Score: {reranked_data[key]["total_rrf_score"]}\nBM25 Rank: {reranked_data[key]["bm25_rank"]}, Semantic Rank: {reranked_data[key]["semantic_rank"]}\n{reranked_data[key]["doc"]["description"]}")
+                for i, key in enumerate(final_results, start=1):
+                    print(f"{i}. {final_results[key]["doc"]["title"]}\nCross Encoder Score: {final_results[key]["cross_encoder_score"]}\nRRF Score: {final_results[key]["total_rrf_score"]}\nBM25 Rank: {final_results[key]["bm25_rank"]}, Semantic Rank: {final_results[key]["semantic_rank"]}\n{final_results[key]["doc"]["description"]}")
                     if i == args.limit:
                         break
             else:
-                for i, key in enumerate(reranked_data, start=1):
-                    print(f"{i}. {reranked_data[key]["doc"]["title"]}\nRerank Rank: {i}\nRRF Score: {reranked_data[key]["total_rrf_score"]}\nBM25 Rank: {reranked_data[key]["bm25_rank"]}, Semantic Rank: {reranked_data[key]["semantic_rank"]}\n{reranked_data[key]["doc"]["description"]}")
+                for i, key in enumerate(final_results, start=1):
+                    print(f"{i}. {final_results[key]["doc"]["title"]}\nRerank Rank: {i}\nRRF Score: {final_results[key]["total_rrf_score"]}\nBM25 Rank: {final_results[key]["bm25_rank"]}, Semantic Rank: {final_results[key]["semantic_rank"]}\n{final_results[key]["doc"]["description"]}")
                     if i == args.limit:
                         break
         case _:
